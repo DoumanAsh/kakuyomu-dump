@@ -1,0 +1,46 @@
+[package]
+name = "kakuyomu-dump"
+version = "1.0.0"
+authors = ["Douman <douman@gmx.se>"]
+description = "kakuyomu dump tool"
+license = "BSL-1.0"
+edition = "2018"
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+    "README.md"
+]
+keywords = ["syosetu"]
+
+repository = "https://github.com/DoumanAsh/syosetu"
+documentation = "https://docs.rs/syosetu"
+
+readme = "README.md"
+
+[dependencies]
+serde = "1"
+serde_derive = "1"
+serde_json = "1"
+serde_ignored_type = "1"
+
+[dependencies.ureq]
+version = "2.2"
+default-features = false
+features = ["tls", "json"]
+
+[dependencies.str-buf]
+version = "3.0.3"
+features = ["serde"]
+
+[dependencies.arg]
+version = "0.4"
+
+[dependencies.scraper]
+version = "0.20"
+default-features = false
+
+[profile.release]
+lto = true
+opt-level = "z"
+codegen-units = 1
+strip = true
