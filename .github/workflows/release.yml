@@ -1,4 +1,8 @@
-name: Rust
+name: Release
+
+permissions:
+  contents: write
+  packages: write
 
 on:
   release:
