@@ -2,6 +2,113 @@ use kakuyomu_dump::*;
 
 use std::{fs, path};
 use std::process::ExitCode;
+use core::num::NonZeroUsize;
+
+fn args_from_stdin(stdio: &stdio::Io) -> Result<cli::Cli, ExitCode> {
+    let mut stdin = stdio.stdin();
+    let mut stdout = stdio.stdout().ignore_errors();
+    let mut stderr = stdio.stderr().ignore_errors();
+
+    macro_rules! prompt {
+        ($($arg:tt)*) => {
+            stdout.write_fmt(format_args!($($arg)*));
+        }
+    }
+    macro_rules! read_line {
+        () => {
+            match stdin.read_line() {
+                Ok(line) => line.trim(),
+                Err(error) => {
+                    stderr.write_fmtn(format_args!("!>>>Unexpected I/O error: {error}"));
+                    return Err(ExitCode::FAILURE);
+                }
+            }
+        };
+    }
+
+    let novel;
+    loop {
+        prompt!(">Please input novel id (e.g. 1177354054883819762): ");
+        let line = read_line!();
+        if line.is_empty() {
+            continue;
+        }
+
+        novel = line.to_owned();
+        break;
+    }
+
+    let from;
+    prompt!(">Please specify which chapters to download:\n");
+    loop {
+        prompt!("Start FROM chapter(defaults to 1)?:");
+        let line = read_line!();
+        if line.is_empty() {
+            from = cli::default_from_value();
+            break;
+        }
+
+        match usize::from_str_radix(line, 10) {
+            Ok(chapter) => match NonZeroUsize::new(chapter) {
+                Some(chapter) => {
+                    from = chapter;
+                    break;
+                },
+                None => {
+                    stderr.write_fmtn(format_args!("!>>>Chapter cannot be zero"));
+                    continue
+                }
+            },
+            Err(error) => {
+                stderr.write_fmtn(format_args!("!>>>'{line}': {error}"));
+                continue;
+            }
+        }
+    }
+
+    let to;
+    loop {
+        prompt!("TO chapter(leave empty for all)?:");
+        let line = read_line!();
+        if line.is_empty() {
+            to = None;
+            break;
+        }
+
+        match usize::from_str_radix(line, 10) {
+            Ok(chapter) => if chapter > from.get() {
+                to = Some(unsafe {
+                    NonZeroUsize::new_unchecked(chapter)
+                });
+                break;
+            } else {
+                stderr.write_fmtn(format_args!("!>>>Number has to be greater than from='{from}'"));
+                continue
+            },
+            Err(error) => {
+                stderr.write_fmtn(format_args!("!>>>{error}"));
+                continue;
+            }
+        }
+    }
+
+    prompt!(">Specify output file (leave empty for default): ");
+    let line = read_line!();
+    let out = if line.is_empty() {
+        None
+    } else {
+        Some(line.to_owned())
+    };
+
+    stdout.write_newline();
+
+    Ok(cli::Cli {
+        from,
+        to,
+        out,
+        novel
+    })
+}
 
 fn main() -> ExitCode {
     let stdio = stdio::Io::new();
@@ -9,9 +116,13 @@ fn main() -> ExitCode {
     match cli::Cli::new() {
         Some(Ok(args)) => run(stdio, args),
         Some(Err(code)) => code,
-        None => todo!(),
+        None => match args_from_stdin(&stdio) {
+            Ok(args) => run(stdio, args),
+            Err(code) => code,
+        }
     }
 }
+
 fn construct_file_path(dir: &str, name: &str) -> path::PathBuf {
     let mut path = path::PathBuf::from(dir);
     path.push(name);

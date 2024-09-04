@@ -46,9 +46,21 @@ impl<T: io::Write> Out<T, behavior::Result> {
         io::Write::write(&mut self.inner, NEWLINE)?;
         io::Write::flush(&mut self.inner)
     }
+
+    #[inline]
+    pub fn write_newline(&mut self) -> io::Result<()> {
+        io::Write::write(&mut self.inner, NEWLINE)?;
+        io::Write::flush(&mut self.inner)
+    }
 }
 
 impl<T: io::Write> Out<T, behavior::Ignore> {
+    #[inline]
+    pub fn write_newline(&mut self) {
+        let _ = io::Write::write(&mut self.inner, NEWLINE);
+        let _ = io::Write::flush(&mut self.inner);
+    }
+
     #[inline]
     pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) {
         let _ = io::Write::write_fmt(&mut self.inner, args);
