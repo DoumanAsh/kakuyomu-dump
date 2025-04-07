@@ -36,7 +36,7 @@ features = ["serde"]
 version = "0.4"
 
 [dependencies.scraper]
-version = "0.20"
+version = "0.23"
 default-features = false
 
 [profile.release]
