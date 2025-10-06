@@ -48,7 +48,7 @@ fn args_from_stdin(stdio: &stdio::Io) -> Result<cli::Cli, ExitCode> {
             break;
         }
 
-        match usize::from_str_radix(line, 10) {
+        match line.parse() {
             Ok(chapter) => match NonZeroUsize::new(chapter) {
                 Some(chapter) => {
                     from = chapter;
@@ -75,7 +75,7 @@ fn args_from_stdin(stdio: &stdio::Io) -> Result<cli::Cli, ExitCode> {
             break;
         }
 
-        match usize::from_str_radix(line, 10) {
+        match line.parse() {
             Ok(chapter) => if chapter > from.get() {
                 to = Some(unsafe {
                     NonZeroUsize::new_unchecked(chapter)

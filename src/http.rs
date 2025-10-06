@@ -2,12 +2,14 @@
 use std::io;
 use core::{time, fmt};
 
+type Response = ureq::http::Response<ureq::Body>;
+
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 #[derive(Debug)]
 pub enum Error {
     StatusFailed(u16),
-    Transport(ureq::Transport),
+    Transport(ureq::Error),
     Read(io::Error)
 }
 
@@ -26,8 +28,8 @@ impl From<ureq::Error> for Error {
     #[inline]
     fn from(value: ureq::Error) -> Self {
         match value {
-            ureq::Error::Transport(error) => Self::Transport(error),
-            ureq::Error::Status(code, _) => Self::StatusFailed(code),
+            ureq::Error::StatusCode(code) => Self::StatusFailed(code),
+            error => Self::Transport(error),
         }
     }
 }
@@ -40,41 +42,45 @@ impl From<io::Error> for Error {
 }
 
 pub trait FromResponse: Sized {
-    fn read_response(resp: ureq::Response) -> Result<Self, Error>;
+    fn read_response(resp: Response) -> Result<Self, Error>;
 }
 
 impl FromResponse for () {
     #[inline(always)]
-    fn read_response(_: ureq::Response) -> Result<Self, Error> {
+    fn read_response(_: Response) -> Result<Self, Error> {
         Ok(())
     }
 }
 
 impl FromResponse for String {
     #[inline(always)]
-    fn read_response(resp: ureq::Response) -> Result<Self, Error> {
-        resp.into_string().map_err(Into::into)
+    fn read_response(resp: Response) -> Result<Self, Error> {
+        resp.into_body().read_to_string().map_err(Into::into)
     }
 }
 
 pub struct Client {
     inner: ureq::Agent,
-    timeout: time::Duration,
 }
 
 impl Client {
     #[inline]
     pub fn new() -> Self {
+        let config = ureq::Agent::config_builder().user_agent(USER_AGENT)
+                                                  .proxy(ureq::Proxy::try_from_env())
+                                                  .max_redirects(5)
+                                                  .timeout_per_call(Some(time::Duration::from_secs(5)))
+                                                  .timeout_connect(Some(time::Duration::from_secs(1)))
+                                                  .build();
         Self {
-            inner: ureq::builder().try_proxy_from_env(true).redirects(5).user_agent(USER_AGENT).build(),
-            timeout: time::Duration::from_secs(5),
+            inner: ureq::Agent::new_with_config(config),
         }
     }
 
     pub fn get<T: FromResponse>(&self, url: &str) -> Result<T, Error> {
-        let response = self.inner.get(url).timeout(self.timeout).call()?;
+        let response = self.inner.get(url).call()?;
         if response.status() != 200 {
-            Err(Error::StatusFailed(response.status()))
+            Err(Error::StatusFailed(response.status().as_u16()))
         } else {
             T::read_response(response)
         }

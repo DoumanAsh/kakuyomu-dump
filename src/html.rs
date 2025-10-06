@@ -190,7 +190,7 @@ impl Document {
         None
     }
 
-    pub fn get_chapter_content<'a>(&'a self, selectors: &'a ChapterSelector) -> Option<(Option<String>, impl Iterator<Item = Line> + 'a)> {
+    pub fn get_chapter_content<'a>(&'a self, selectors: &'a ChapterSelector) -> Option<(Option<String>, impl Iterator<Item = Line<'a>> + 'a)> {
         let title = self.inner.select(&selectors.title).next().map(|html| html.inner_html());
 
         if let Some(body) = self.inner.select(&selectors.body).next() {
