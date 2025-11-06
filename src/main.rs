@@ -92,6 +92,49 @@ fn args_from_stdin(stdio: &stdio::Io) -> Result<cli::Cli, ExitCode> {
         }
     }
 
+    let rate;
+    loop {
+        prompt!("Rate limit on number of chapters to be downloaded per second(leave empty for no)?:");
+        let line = read_line!();
+        if line.is_empty() {
+            rate = 0;
+            break;
+        }
+
+        match line.parse() {
+            Ok(new_value) => {
+                rate = new_value;
+                break;
+            },
+            Err(error) => {
+                stderr.write_fmtn(format_args!("!>>>{error}"));
+                continue;
+            }
+        }
+    }
+
+    let rate_interval;
+    loop {
+        prompt!("Interval between rate limited downloads(leave empty for 1s)?:");
+        let line = read_line!();
+        if line.is_empty() {
+            rate_interval = 1;
+            break;
+        }
+
+        match line.parse() {
+            Ok(new_value) => {
+                rate_interval = new_value;
+                break;
+            },
+            Err(error) => {
+                stderr.write_fmtn(format_args!("!>>>{error}"));
+                continue;
+            }
+        }
+    }
+
+
     prompt!(">Specify output file (leave empty for default): ");
     let line = read_line!();
     let out = if line.is_empty() {
@@ -106,7 +149,9 @@ fn args_from_stdin(stdio: &stdio::Io) -> Result<cli::Cli, ExitCode> {
         from,
         to,
         out,
-        novel
+        novel,
+        rate,
+        rate_interval,
     })
 }
 
@@ -129,6 +174,40 @@ fn construct_file_path(dir: &str, name: &str) -> path::PathBuf {
     path.set_extension("md");
 
     path
+}
+
+struct PaceMaker {
+    count: u16,
+    last_stop_time: std::time::Instant,
+    rate_limit: u16,
+    sleep_interval: core::time::Duration,
+}
+
+impl PaceMaker {
+    fn new(rate_limit: u16, sleep_interval: core::time::Duration) -> Self {
+        Self {
+            count: 0,
+            last_stop_time: std::time::Instant::now(),
+            rate_limit,
+            sleep_interval,
+        }
+    }
+
+    fn on_chapter_finished(&mut self, stdout: &mut stdio::Out<impl std::io::Write + core::fmt::Debug, stdio::behavior::Ignore>) {
+        if self.rate_limit == 0 {
+            return;
+        }
+
+        self.count += 1;
+        if self.count >= self.rate_limit {
+            if let Some(sleep_time) = self.sleep_interval.checked_sub(self.last_stop_time.elapsed()) {
+                stdout.write_fmtn(format_args!("Wait {:.3}s...", sleep_time.as_secs_f64()));
+                std::thread::sleep(sleep_time);
+            }
+            self.count = 0;
+            self.last_stop_time = std::time::Instant::now();
+        }
+    }
 }
 
 fn run(io: stdio::Io, args: cli::Cli) -> ExitCode {
@@ -226,6 +305,7 @@ fn run(io: stdio::Io, args: cli::Cli) -> ExitCode {
 
     write_novel!("Original: {novel_url}\n");
 
+    let mut pace_maker = PaceMaker::new(args.rate, core::time::Duration::from_secs(args.rate_interval));
     let max_idx = max - 1;
     let selectors = html::ChapterSelector::new();
     for (idx, chapter) in index.chapters.into_iter().enumerate().skip(min - 1) {
@@ -268,6 +348,7 @@ fn run(io: stdio::Io, args: cli::Cli) -> ExitCode {
         }
 
         url.clear();
+        pace_maker.on_chapter_finished(&mut stdout);
     }
 
     if let Err(error) = std::io::Write::flush(&mut novel_out) {

@@ -2,7 +2,7 @@ use std::{io, fmt};
 
 const NEWLINE: &[u8] = b"\n";
 
-mod behavior {
+pub mod behavior {
     #[derive(Copy, Clone)]
     pub struct Result;
     #[derive(Copy, Clone)]

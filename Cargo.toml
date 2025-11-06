@@ -1,6 +1,6 @@
 [package]
 name = "kakuyomu-dump"
-version = "1.0.0"
+version = "1.1.0"
 authors = ["Douman <douman@gmx.se>"]
 description = "kakuyomu dump tool"
 license = "BSL-1.0"

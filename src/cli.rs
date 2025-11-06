@@ -25,6 +25,12 @@ pub struct Cli {
     #[arg(required)]
     ///Id of the novel to dump (e.g. 1177354054883819762)
     pub novel: String,
+    #[arg(long, default_value = "0")]
+    ///Number of chapters to download at most per interval. Defaults to no limit.
+    pub rate: u16,
+    #[arg(long, default_value = "1")]
+    ///Interval between rated downloads. Defaults to 1 second.
+    pub rate_interval: u64,
 }
 
 impl Cli {
