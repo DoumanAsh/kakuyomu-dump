@@ -32,7 +32,7 @@ features = ["rustls", "platform-verifier", "json"]
 version = "0.4"
 
 [dependencies.scraper]
-version = "0.24"
+version = "0.25"
 default-features = false
 
 [profile.release]
